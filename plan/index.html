@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Focus</title>
+    <link rel="stylesheet" href="/style.css">
+    <meta name="yandex" content="noindex, nofollow">
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <img src="/images/logo.png" alt="Logo" class="logo-img">
+            <div class="name_site"><h1 id="appTitle">Focus</h1></div>
+        </div>
+        <nav>
+            <div class="notification-bell" onclick="toggleNotifications(event)">
+                <span class="bell-icon">🔔</span>
+                <span id="notification-badge" class="notification-badge" style="display:none">0</span>
+                <div id="notifications-dropdown" class="notifications-dropdown" style="display:none">
+                    <div class="notifications-header">
+                        <h3 id="notificationsTitle">Уведомления</h3>
+                        <div>
+                            <button id="markAllReadBtn" onclick="markAllNotificationsRead(event)">Прочитать все</button>
+                            <button id="deleteAllNotifBtn" onclick="deleteAllNotifications(event)" style="margin-left:8px;">Удалить все</button>
+                        </div>
+                    </div>
+                    <div id="notifications-list"></div>
+                </div>
+            </div>
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <span class="search-icon">🔍</span>
+                    <input type="text" id="search-input" class="search-input" placeholder="Поиск задач...">
+                    <button class="filter-toggle-btn" onclick="toggleFilterPanel()">⚙️</button>
+                </div>
+                <div id="filter-panel" class="filter-panel" style="display: none;">
+                    <div class="filter-group">
+                        <label id="filterProjectLabel">Проект</label>
+                        <select id="filter-project"><option value="">Все проекты</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label id="filterTagLabel">Тег</label>
+                        <select id="filter-tag"><option value="">Все теги</option></select>
+                    </div>
+                    <div class="filter-group">
+                        <label id="filterDateLabel">Дата</label>
+                        <input type="text" id="filter-date" class="date-input" placeholder="ДД.ММ.ГГГГ">
+                    </div>
+                    <div class="filter-group">
+                        <label id="filterStatusLabel">Статус</label>
+                        <select id="filter-status">
+                            <option value="">Все</option>
+                            <option value="active">Активные</option>
+                            <option value="completed">Выполненные</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label id="filterPriorityLabel">Приоритет</label>
+                        <select id="filter-priority">
+                            <option value="">Все</option>
+                            <option value="low">Низкий</option>
+                            <option value="medium">Средний</option>
+                            <option value="high">Высокий</option>
+                        </select>
+                    </div>
+                    <button id="applyFilterBtn" class="apply-filter-btn" onclick="applyFilters()">Применить</button>
+                    <button id="clearFilterBtn" class="clear-filter-btn" onclick="clearAllFilters()">Сбросить</button>
+                </div>
+            </div>
+            <div class="profil" onclick="toggleProfileMenu()">
+                <div class="avatar" id="avatar">Я</div>
+                <div id="profile-menu" class="profile-menu" style="display: none;">
+                    <div class="profile-menu-item" onclick="showProfileSettings()"><span>👤</span> <span id="settingsMenu">Настройки</span></div>
+                    <hr>
+                    <div class="profile-menu-item logout-item" onclick="logout()"><span>🚪</span> <span id="logoutMenu">Выйти</span></div>
+                </div>
+            </div>
+        </nav>
+    </header>
+    <div class="screen">
+        <aside class="sidebar">
+            <div class="calendar">
+                <div class="calendar-month">
+                    <button class="month-nav" onclick="prevMonth()">◀</button>
+                    <h3 id="calendarMonthYear">Май 2026</h3>
+                    <button class="month-nav" onclick="nextMonth()">▶</button>
+                </div>
+                <div class="calendar-weekday">
+                    <span id="mon">Пн</span>
+                    <span id="tue">Вт</span>
+                    <span id="wed">Ср</span>
+                    <span id="thu">Чт</span>
+                    <span id="fri">Пт</span>
+                    <span id="sat">Сб</span>
+                    <span id="sun">Вс</span>
+                </div>
+                <div id="calendar-days" class="calendar-day"></div>
+            </div>
+            <div class="menu-section">
+                <div class="section-header">
+                    <h3 class="section-title" onclick="showAllProjects()"><span id="projectsMenu">Проекты</span></h3>
+                    <button class="section-btn" onclick="event.stopPropagation(); showProjectModal()">+</button>
+                    <button class="section-toggle" id="toggle-projects-btn" onclick="event.stopPropagation(); toggleProjects()">▼</button>
+                </div>
+                <hr>
+                <div id="projects-container" class="projects-container"></div>
+            </div>
+            <div class="menu-item" id="teams-menu-item" style="display: none;" onclick="selectMenuItem(this, 'teams')">
+                <span class="menu-text" id="teamsMenu">Мои команды</span>
+            </div>
+            <div class="menu-item" onclick="selectMenuItem(this, 'tasks')">
+                <span class="menu-text" id="allTasksMenu">Все задачи</span>
+            </div>
+            <div class="menu-item" id="clients-menu-item" style="display: none;" onclick="selectMenuItem(this, 'clients')">
+                <span class="menu-text" id="clientsMenu">Мои клиенты</span>
+            </div>
+            <div class="menu-item" onclick="selectMenuItem(this, 'stats')">
+                <span class="menu-text" id="statisticsMenu">Статистика</span>
+            </div>
+            <div class="menu-item" id="reports-menu" style="display: none;" onclick="selectMenuItem(this, 'reports')">
+                <span class="menu-text" id="reportsMenu">Отчеты</span>
+            </div>
+        </aside>
+        <main class="main-content">
+            <div id="main-container"></div>
+        </main>
+    </div>
+    <div id="project-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeProjectModal()">×</span>
+            <h3 id="projectModalTitle">Новый проект</h3>
+            <label id="projectNameLabel">Название проекта</label>
+            <input type="text" id="project-name" placeholder="Введите название проекта">
+            <label id="projectDescLabel">Описание</label>
+            <textarea id="project-desc" placeholder="Краткое описание проекта (необязательно)"></textarea>
+            <div id="project-type-container" style="display:none;">
+                <label id="projectTypeLabel">Тип проекта</label>
+                <select id="project-type">
+                    <option value="personal" id="projectTypePersonal">Личный</option>
+                    <option value="team" id="projectTypeTeam">Командный</option>
+                </select>
+            </div>
+            <div id="project-team-container" style="display:none;">
+                <label id="projectTeamLabel">Команда</label>
+                <select id="project-team"></select>
+                <div id="project-team-warning" style="color:#e91e63; font-size:12px; margin-top:4px; display:none;">У вас нет команд. Сначала создайте команду</div>
+            </div>
+            <div id="project-freelancer-fields" style="display:none;">
+                <label id="projectCategoryLabel">Категория</label>
+                <select id="project-category"></select>
+                <label id="projectClientLabel">Клиент</label>
+                <select id="project-client"></select>
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" id="projectCancelBtn" onclick="closeProjectModal()">Отмена</button>
+                <button class="submit-btn" id="projectSubmitBtn" onclick="createProject()">Создать</button>
+            </div>
+        </div>
+    </div>
+<div id="task-modal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeTaskModal()">×</span>
+        <h3 id="taskModalTitle">Новая задача</h3>
+        <label id="taskTitleLabel">Название задачи</label>
+        <input type="text" id="task-title" placeholder="Введите название задачи">
+        <label id="taskDescLabel">Описание</label>
+        <textarea id="task-desc" placeholder="Подробное описание (необязательно)"></textarea>
+        <label id="taskDueLabel">Дедлайн</label>
+        <input type="text" id="task-due" class="date-input" placeholder="ДД.ММ.ГГГГ">
+        <label id="taskTimeLabel">Время</label>
+        <input type="time" id="task-time">
+        <label id="taskPriorityLabel">Приоритет</label>
+        <select id="task-priority">
+            <option value="low" id="priorityLow">Низкий</option>
+            <option value="medium" selected id="priorityMedium">Средний</option>
+            <option value="high" id="priorityHigh">Высокий</option>
+        </select>
+        <label id="taskProjectLabel">Проект</label>
+        <select id="task-project"></select>
+        <label id="taskTagLabel">Тег</label>
+        <div class="select-with-create">
+            <select id="task-tag"></select>
+            <button type="button" class="create-inline-btn" id="quickTagBtn" onclick="showQuickTagModal()">+</button>
+        </div>
+        <label id="taskAssigneeLabel">Исполнитель</label>
+        <select id="task-assignee">
+            <option value="">Не назначен</option>
+        </select>
+        <div class="modal-buttons">
+            <button class="cancel-btn" id="taskCancelBtn" onclick="closeTaskModal()">Отмена</button>
+            <button class="submit-btn" id="taskSubmitBtn" onclick="createTask()">Создать задачу</button>
+        </div>
+    </div>
+</div>
+    <div id="client-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeClientModal()">×</span>
+            <h3 id="clientModalTitle">Новый клиент</h3>
+            <input type="hidden" id="client-edit-id">
+            <label id="clientNameLabel">Название</label>
+            <input type="text" id="client-name" placeholder="Название компании/Имя">
+            <label id="clientContactsLabel">Контакты</label>
+            <input type="text" id="client-contacts" placeholder="Email, телефон...">
+            <label id="clientAdditionalLabel">Дополнительная информация</label>
+            <textarea id="client-additional" placeholder="Примечания (необязательно)"></textarea>
+            <div class="modal-buttons">
+                <button class="cancel-btn" id="clientCancelBtn" onclick="closeClientModal()">Отмена</button>
+                <button class="submit-btn" id="clientSubmitBtn" onclick="createClient()">Создать</button>
+            </div>
+        </div>
+    </div>
+    <div id="team-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeTeamModal()">×</span>
+            <h3 id="teamModalTitle">Новая команда</h3>
+            <input type="hidden" id="team-edit-id">
+            <label id="teamNameLabel">Название</label>
+            <input type="text" id="team-name" placeholder="Название команды">
+            <label id="teamDescLabel">Описание</label>
+            <textarea id="team-desc" placeholder="Описание (необязательно)"></textarea>
+            <div class="modal-buttons">
+                <button class="cancel-btn" id="teamCancelBtn" onclick="closeTeamModal()">Отмена</button>
+                <button class="submit-btn" id="teamSubmitBtn" onclick="createTeam()">Создать</button>
+            </div>
+        </div>
+    </div>
+<div id="team-members-modal" class="modal">
+    <div class="modal-content" style="max-width: 550px; width: 90%;">
+        <span class="close" onclick="closeTeamMembersModal()">×</span>
+        <h3 id="teamMembersTitle">Участники команды</h3>
+        
+        <label id="membersLabel">Участники</label>
+        <div id="team-members-list" style="margin-bottom: 16px;"></div>
+        
+        <label id="invitedLabel">Приглашённые</label>
+        <div id="team-invited-list" style="margin-bottom: 16px;"></div>
+        
+        <label id="inviteByEmailLabel">Пригласить участника</label>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <input type="text" id="invite-email" placeholder="Введите email или имя" style="flex: 1; padding: 10px; border: 1px solid #e8e8ed; border-radius: 8px;">
+            <button id="searchUserBtn" onclick="searchUsers()" style="padding: 10px 20px; background: #1d1d1f; color: white; border: none; border-radius: 8px; cursor: pointer;">Найти</button>
+        </div>
+        
+        <div id="search-results" style="max-height: 180px; overflow-y: auto; margin-bottom: 12px; border: 1px solid #e8e8ed; border-radius: 8px; display: none;"></div>
+        
+        <button id="inviteMemberBtn" onclick="inviteMember()" style="width: 100%; padding: 12px; background: #1d1d1f; color: white; border: none; border-radius: 8px; cursor: pointer;">Пригласить</button>
+        
+        <label id="teamProjectsLabel">Проекты команды</label>
+        <div id="team-projects-list"></div>
+        <div style="display: flex; gap: 10px; margin-top: 10px;">
+            <select id="add-project-select" style="flex: 1; padding: 10px; border: 1px solid #e8e8ed; border-radius: 8px;"></select>
+            <button id="addProjectBtn" onclick="addProjectToTeam()" style="padding: 10px 20px; background: #1d1d1f; color: white; border: none; border-radius: 8px; cursor: pointer;">Добавить</button>
+        </div>
+    </div>
+</div>
+    <div id="quick-category-modal" class="modal small-modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeQuickCategoryModal()">×</span>
+            <h3 id="quickCategoryTitle">Новая категория</h3>
+            <input type="text" id="quick-category-name" placeholder="Название категории">
+            <div class="modal-buttons">
+                <button class="cancel-btn" id="quickCategoryCancelBtn" onclick="closeQuickCategoryModal()">Отмена</button>
+                <button class="submit-btn" id="quickCategorySubmitBtn" onclick="createQuickCategory()">Создать</button>
+            </div>
+        </div>
+    </div>
+    <div id="quick-tag-modal" class="modal small-modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeQuickTagModal()">×</span>
+            <h3 id="quickTagTitle">Новый тег</h3>
+            <input type="text" id="quick-tag-name" placeholder="Название тега">
+            <div class="modal-buttons">
+                <button class="cancel-btn" id="quickTagCancelBtn" onclick="closeQuickTagModal()">Отмена</button>
+                <button class="submit-btn" id="quickTagSubmitBtn" onclick="createQuickTag()">Создать</button>
+            </div>
+        </div>
+    </div>
+    <div id="report-modal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeReportModal()">×</span>
+            <h3 id="reportModalTitle">Новый отчет</h3>
+            <label id="reportNameLabel">Название отчета</label>
+            <input type="text" id="report-name" placeholder="Например: Отчет для ИП Иванов">
+            <label id="reportStartLabel">Период (начало)</label>
+            <input type="date" id="report-start">
+            <label id="reportEndLabel">Период (конец)</label>
+            <input type="date" id="report-end">
+            <label id="reportTypeLabel">Тип отчета</label>
+            <select id="report-type" onchange="toggleReportTarget()">
+                <option value="project" id="reportTypeProject">По проекту</option>
+                <option value="client" id="reportTypeClient">По клиенту</option>
+                <option value="team" id="reportTypeTeam">По команде</option>
+            </select>
+            <label id="reportTargetLabel">Цель</label>
+            <select id="report-target"></select>
+            <div class="modal-buttons">
+                <button class="cancel-btn" id="reportCancelBtn" onclick="closeReportModal()">Отмена</button>
+                <button class="submit-btn" id="reportSubmitBtn" onclick="createReport()">Создать</button>
+            </div>
+        </div>
+    </div>
+    <div id="profile-modal" class="modal small-modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeProfileModal()">×</span>
+            <h3 id="profileModalTitle">Настройки профиля</h3>
+            <label id="profileUsernameLabel">Имя пользователя</label>
+            <input type="text" id="profile-username" placeholder="Введите новое имя">
+            <label id="profileLanguageLabel">Язык</label>
+            <select id="profile-language">
+                <option value="ru">Русский</option>
+                <option value="en">English</option>
+            </select>
+            <div class="profile-notif-row">
+                <input type="checkbox" id="profile-notif" checked>
+                <label id="profileNotifLabel" for="profile-notif">Получать уведомления</label>
+            </div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" id="profileCancelBtn" onclick="closeProfileModal()">Отмена</button>
+                <button class="submit-btn" id="profileSaveBtn" onclick="updateProfile()">Сохранить</button>
+            </div>
+        </div>
+    </div>
+<div id="quick-team-modal" class="modal small-modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeQuickTeamModal()">&times;</span>
+        <h3 id="quickTeamTitle">Создание команды</h3>
+        <label id="quickTeamNameLabel">Название команды</label>
+        <input type="text" id="quick-team-name" placeholder="Введите название команды">
+        <label id="quickTeamDescLabel">Описание (необязательно)</label>
+        <textarea id="quick-team-desc" placeholder="Описание команды"></textarea>
+        <div class="modal-buttons">
+            <button class="cancel-btn" id="quickTeamCancelBtn" onclick="closeQuickTeamModal()">Отмена</button>
+            <button class="submit-btn" id="quickTeamSubmitBtn" onclick="createQuickTeamAndProject()">Создать команду и проект</button>
+        </div>
+    </div>
+</div>
+</div>
+    <div id="task-details-modal" class="modal">
+        <div class="modal-content" style="max-width: 500px;">
+            <span class="close" onclick="closeTaskDetailsModal()">×</span>
+            <h3 id="taskDetailsTitle">Детали задачи</h3>
+            <div id="task-details-content"></div>
+            <div class="modal-buttons">
+                <button class="cancel-btn" id="taskDetailsCloseBtn" onclick="closeTaskDetailsModal()">Закрыть</button>
+                <button class="submit-btn" id="taskDetailsEditBtn" onclick="">Редактировать</button>
+            </div>
+        </div>
+    </div>
+    <div id="network-error" class="network-error" style="display: none;">
+        <div class="network-error-content">
+            <span>⚠️</span>
+            <span id="networkErrorMessage">Ошибка подключения к серверу</span>
+            <button onclick="hideNetworkError()">✕</button>
+        </div>
+    </div>
+    <script src="/script.js"></script>
+</body>
+</html>

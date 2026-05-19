@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Регистрация | Focus</title>
+    <link rel="stylesheet" href="/style.css">
+    <meta name="yandex" content="noindex, nofollow">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body class="auth-page">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-logo">
+                <div class="logo-icon">📋</div>
+                <h1>Focus</h1>
+                <p>Создайте новый аккаунт</p>
+            </div>
+            
+            <div class="auth-form">
+                <input type="text" id="reg-username" placeholder="Имя пользователя" autocomplete="username">
+                <input type="email" id="reg-email" placeholder="Email" autocomplete="email">
+                <input type="password" id="reg-password" placeholder="Пароль" autocomplete="new-password">
+                <input type="password" id="reg-confirm" placeholder="Повторите пароль" autocomplete="new-password">
+                
+                <div class="user-type-selector">
+                    <label class="user-type-label">Тип аккаунта:</label>
+                    <div class="user-type-options">
+                        <label class="user-type-option">
+                            <input type="radio" name="user-type" value="1" checked>
+                            <span>👤 Обычный пользователь</span>
+                            <small>Только личные задачи</small>
+                        </label>
+                        <label class="user-type-option">
+                            <input type="radio" name="user-type" value="2">
+                            <span>💼 Фрилансер</span>
+                            <small>Проекты, клиенты, отчеты</small>
+                        </label>
+                    </div>
+                </div>
+                
+                <button onclick="registerUser()">Зарегистрироваться</button>
+            </div>
+            
+            <div id="reg-message" class="auth-message"></div>
+            
+            <div class="auth-footer">
+                <p>Уже есть аккаунт? <a href="/login.html">Войти</a></p>
+            </div>
+        </div>
+    </div>
+    <script src="/script.js"></script>
+</body>
+</html>
