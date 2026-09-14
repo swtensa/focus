@@ -1343,7 +1343,7 @@ def accept_invite(notification_id: int, current_user: dict = Depends(get_current
     cur.close()
     return {"message": "Accepted"}
 
-@router.post("/api/notifications/{notification_id}/reject")
+@router.post("/notifications/{notification_id}/reject")
 def reject_invite(notification_id: int, current_user: dict = Depends(get_current_user), conn=Depends(get_db)):
     cur = conn.cursor()
     cur.execute("SELECT * FROM notifications WHERE notification_id = %s AND user_id = %s", (notification_id, current_user["id_user"]))

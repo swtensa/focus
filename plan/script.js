@@ -638,7 +638,7 @@ async function api(url, method, body) {
     if (t) headers['Authorization'] = 'Bearer ' + t;
     
     try {
-        let res = await fetch('http://localhost:8000/api' + url, {
+        let res = await fetch('/api' + url, {
             method: method,
             headers: headers,
             body: body ? JSON.stringify(body) : null
@@ -1746,7 +1746,7 @@ async function loadTeamMembersForTask(projectId) {
 
 function downloadStatisticsExcel() {
     let token = getToken();
-    fetch('http://localhost:8000/api/stats/export', {
+    fetch('/api/stats/export', {
         headers: { 'Authorization': 'Bearer ' + token }
     })
     .then(function(response) {
@@ -2575,7 +2575,7 @@ function downloadReport(reportId) {
         return;
     }
     
-    fetch('http://localhost:8000/api/reports/' + reportId + '/download', {
+    fetch('/api/reports/' + reportId + '/download', {
         headers: { 'Authorization': 'Bearer ' + token }
     })
     .then(function(response) {
@@ -2737,7 +2737,7 @@ async function loginUser() {
     }
     
     try {
-        var res = await fetch('http://localhost:8000/api/login', {
+        var res = await fetch('/api/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email: email, password: password })
@@ -2780,7 +2780,7 @@ async function registerUser() {
     }
     
     try {
-        var res = await fetch('http://localhost:8000/api/register', {
+        var res = await fetch('/api/register', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ username: username, email: email, password: password, user_type: userType })
