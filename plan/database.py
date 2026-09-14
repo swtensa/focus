@@ -1,12 +1,16 @@
+import os
 import psycopg2
 from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DB_CONFIG = {
-    "dbname": "taskflow_db",
-    "host": "localhost",
-    "port": 5432,
-    "user": "postgres",
-    "password": "1234123q"
+    "dbname": os.getenv("DB_NAME", "taskflow_db"),
+    "host": os.getenv("DB_HOST", "localhost"),
+    "port": int(os.getenv("DB_PORT", 5432)),
+    "user": os.getenv("DB_USER", "postgres"),
+    "password": os.getenv("DB_PASSWORD"),
 }
 
 def get_db():
