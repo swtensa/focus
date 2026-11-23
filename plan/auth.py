@@ -2,13 +2,14 @@ import os
 import jwt
 import re
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import HTTPException, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from passlib.context import CryptContext
 from database import get_db
 
-load_dotenv()
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 if not SECRET_KEY:
@@ -16,7 +17,7 @@ if not SECRET_KEY:
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 24 * 7
-bearer_scheme = HTTPBearer()
+bearer_scheme = HTTPBearer(auto_error=False)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 def hash_password(password: str) -> str:
@@ -33,14 +34,17 @@ def create_access_token(user_id: int) -> str:
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme), conn=Depends(get_db)):
+    # Без заголовка Authorization отвечаем 401, чтобы фронтенд отправил на страницу входа
+    if credentials is None:
+        raise HTTPException(401, "Not authenticated")
     token = credentials.credentials
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id = payload.get("sub")
-        if not user_id:
+        if not user_id or not str(user_id).isdigit():
             raise HTTPException(401, "Invalid token payload")
         cur = conn.cursor()
-        cur.execute("SELECT id_user, username, email, user_type FROM users WHERE id_user = %s", (user_id,))
+        cur.execute("SELECT id_user, username, email, user_type FROM users WHERE id_user = %s", (int(user_id),))
         user = cur.fetchone()
         cur.close()
         if not user:

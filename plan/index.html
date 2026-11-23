@@ -148,7 +148,10 @@
             </div>
             <div id="project-freelancer-fields" style="display:none;">
                 <label id="projectCategoryLabel">Категория</label>
-                <select id="project-category"></select>
+                <div class="select-with-create">
+                    <select id="project-category"></select>
+                    <button type="button" class="create-inline-btn" id="quickCategoryBtn" onclick="showQuickCategoryModal()">+</button>
+                </div>
                 <label id="projectClientLabel">Клиент</label>
                 <select id="project-client"></select>
             </div>
@@ -334,7 +337,6 @@
             <button class="submit-btn" id="quickTeamSubmitBtn" onclick="createQuickTeamAndProject()">Создать команду и проект</button>
         </div>
     </div>
-</div>
 </div>
     <div id="task-details-modal" class="modal">
         <div class="modal-content" style="max-width: 500px;">

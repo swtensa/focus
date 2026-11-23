@@ -16,6 +16,7 @@ plan/
 ├── back.py          # точка входа FastAPI-приложения, раздача статики, CORS
 ├── auth.py          # JWT-токены, хеширование паролей (bcrypt), валидация
 ├── database.py      # подключение к PostgreSQL
+├── schema.sql       # структура таблиц базы данных
 ├── models.py        # Pydantic-схемы запросов/ответов
 ├── routers.py       # все API-эндпоинты (/api/...)
 ├── index.html       # главная страница приложения
@@ -57,13 +58,14 @@ requirements.txt          # зависимости Python
    pip install -r requirements.txt
    ```
 
-3. Создать базу данных PostgreSQL:
+3. Создать базу данных PostgreSQL и таблицы:
 
-   ```sql
-   CREATE DATABASE taskflow_db;
+   ```bash
+   psql -U postgres -c "CREATE DATABASE taskflow_db;"
+   psql -U postgres -d taskflow_db -f plan/schema.sql
    ```
 
-   (структуру таблиц нужно создать самостоятельно по коду в `plan/routers.py`/`plan/database.py` — файла миграций в проекте пока нет)
+   `schema.sql` можно запускать повторно: уже существующие таблицы он не трогает.
 
 4. Скопировать `plan/.env.example` в `plan/.env` и заполнить своими значениями:
 
@@ -86,7 +88,6 @@ requirements.txt          # зависимости Python
 
 ## Известные ограничения / что дальше
 
-- Нет файла миграций/схемы БД — структура таблиц восстанавливается по коду
 - Нет автоматических тестов
 - CORS настроен на несколько локальных адресов «про запас» — в проде список origin нужно сузить до реального домена
 - Не реализовано восстановление пароля

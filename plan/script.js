@@ -198,7 +198,15 @@ const langData = {
     connectionError: 'Нет соединения',
     noDescription: 'Нет описания',
     notSet: 'Не указано',
-    taskDetailsTitle: 'Детали задачи'
+    taskDetailsTitle: 'Детали задачи',
+    priorityLow: 'Низкий',
+    priorityMedium: 'Средний',
+    priorityHigh: 'Высокий',
+    noClients: 'Нет клиентов',
+    quickCategoryCancelBtn: 'Отмена',
+    quickTagCancelBtn: 'Отмена',
+    invalidDate: 'Введите дату в формате ДД.ММ.ГГГГ',
+    editProjectTitle: 'Редактирование проекта'
     },
     en: {
     appTitle: 'Focus ',
@@ -399,7 +407,11 @@ const langData = {
     closeMembersBtn: 'Close',
     newTeam: 'New team',
     reportTypeTeam: 'By team',
-    deleteAllNotifBtn: 'Delete all'
+    noClients: 'No clients',
+    quickCategoryCancelBtn: 'Cancel',
+    quickTagCancelBtn: 'Cancel',
+    invalidDate: 'Enter the date as DD.MM.YYYY',
+    editProjectTitle: 'Edit project'
     }
 };
 
@@ -566,13 +578,14 @@ function formatDateInput(input) {
     input.value = value;
 }
 
+// ДД.ММ.ГГГГ -> ГГГГ-ММ-ДД. Пустая строка -> null, неверная дата -> undefined
 function parseDateToISO(dateStr) {
     if (!dateStr) return null;
-    let parts = dateStr.split('.');
-    if (parts.length === 3) {
-        return parts[2] + '-' + parts[1] + '-' + parts[0];
-    }
-    return dateStr;
+    let m = /^(\d{2})\.(\d{2})\.(\d{4})$/.exec(dateStr.trim());
+    if (!m) return undefined;
+    let d = new Date(+m[3], +m[2] - 1, +m[1]);
+    if (d.getFullYear() !== +m[3] || d.getMonth() !== +m[2] - 1 || d.getDate() !== +m[1]) return undefined;
+    return m[3] + '-' + m[2] + '-' + m[1];
 }
 
 function formatDate(dateStr) {
@@ -605,13 +618,9 @@ function getToken() {
 }
 
 function escapeHtml(text) {
-    if (!text) return '';
-    return text.replace(/[&<>]/g, function(m) {
-        if (m === '&') return '&amp;';
-        if (m === '<') return '&lt;';
-        if (m === '>') return '&gt;';
-        return m;
-    });
+    if (text === null || text === undefined) return '';
+    var map = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
+    return String(text).replace(/[&<>"']/g, function(m) { return map[m]; });
 }
 
 function showNetworkError(message) {
@@ -634,9 +643,9 @@ function hideNetworkError() {
 async function api(url, method, body) {
     if (!method) method = 'GET';
     let headers = { 'Content-Type': 'application/json' };
-    let t = getToken();
-    if (t) headers['Authorization'] = 'Bearer ' + t;
-    
+    let token = getToken();
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+
     try {
         let res = await fetch('/api' + url, {
             method: method,
@@ -653,7 +662,15 @@ async function api(url, method, body) {
         if (res.status === 204) return null;
         if (!res.ok) {
             let errorData = await res.json().catch(function() { return {}; });
-            throw new Error(errorData.detail || 'HTTP ' + res.status);
+            let detail = errorData.detail;
+            // Ошибки проверки данных FastAPI приходят списком
+            if (Array.isArray(detail)) {
+                detail = detail.map(function(e) {
+                    var field = e.loc ? e.loc[e.loc.length - 1] : '';
+                    return (field ? field + ': ' : '') + e.msg;
+                }).join('; ');
+            }
+            throw new Error(detail || 'HTTP ' + res.status);
         }
         return await res.json();
     } catch (error) {
@@ -775,12 +792,20 @@ function startNotificationPolling() {
 function updateTagSelects() {
     let taskTag = document.getElementById('task-tag');
     let filterTag = document.getElementById('filter-tag');
-    let options = '<option value="">' + t('noTag') + '</option>';
+    let options = '';
     for (var i = 0; i < tags.length; i++) {
         options += '<option value="' + tags[i].id + '">' + escapeHtml(tags[i].name) + '</option>';
     }
-    if (taskTag) taskTag.innerHTML = options;
-    if (filterTag) filterTag.innerHTML = '<option value="">' + t('allTags') + '</option>' + options;
+    if (taskTag) {
+        var selectedTag = taskTag.value;
+        taskTag.innerHTML = '<option value="">' + t('noTag') + '</option>' + options;
+        taskTag.value = selectedTag;
+    }
+    if (filterTag) {
+        var selectedFilter = filterTag.value;
+        filterTag.innerHTML = '<option value="">' + t('allTags') + '</option>' + options;
+        filterTag.value = selectedFilter;
+    }
 }
 
 function updateCategorySelects() {
@@ -816,24 +841,21 @@ function updateProjectSelects() {
             html += '<option value="' + p.id + '">' + escapeHtml(name) + '</option>';
         }
         taskProject.innerHTML = html;
-        
+
         taskProject.onchange = async function() {
-            let projectId = parseInt(this.value);
-            if (projectId) {
-                await loadTeamMembersForTask(projectId);
-            } else {
-                document.getElementById('task-assignee').innerHTML = '<option value="">Не назначен</option>';
-            }
+            await loadTeamMembersForTask(parseInt(this.value) || null);
         };
     }
-    
+
     let filterProject = document.getElementById('filter-project');
     if (filterProject) {
+        var selectedFilter = filterProject.value;
         let html = '<option value="">' + t('allProjectsFilter') + '</option>';
         for (var i = 0; i < projects.length; i++) {
             html += '<option value="' + projects[i].id + '">' + escapeHtml(projects[i].name) + '</option>';
         }
         filterProject.innerHTML = html;
+        filterProject.value = selectedFilter;
     }
 }
 
@@ -1220,6 +1242,7 @@ async function showProjectTasksFromList(projectId) {
     currentView = 'tasks';
     
     let project = projects.find(p => p.id === projectId);
+    if (!project) return showAllProjects();
     await loadTasks();
     
     let container = document.getElementById('main-container');
@@ -1241,6 +1264,7 @@ function showAllProjects() {
     selectedProjectId = null;
     selectedDate = null;
     currentView = 'projects';
+    renderProjectsList();
     
     let container = document.getElementById('main-container');
     container.innerHTML = `
@@ -1253,66 +1277,9 @@ function showAllProjects() {
     renderProjectsAsList();
 }
 
+// Обновляет список проектов на экране «Все проекты», если он открыт
 function renderAllProjects() {
-    let container = document.getElementById('all-projects-list');
-    if (!container) return;
-    
-    var personal = [];
-    var team = [];
-    for (var i = 0; i < projects.length; i++) {
-        if (projects[i].type === 'personal') personal.push(projects[i]);
-        else team.push(projects[i]);
-    }
-    
-    var html = '';
-    
-    if (personal.length > 0) {
-        html += '<div class="project-group-title" style="margin-top:0;">👤 ' + t('personalProjects') + '</div>';
-        for (var i = 0; i < personal.length; i++) {
-            html += renderProjectCard(personal[i]);
-        }
-    }
-    
-    if (team.length > 0) {
-        html += '<div class="project-group-title" style="margin-top:16px;">👥 ' + t('teamProjects') + '</div>';
-        for (var i = 0; i < team.length; i++) {
-            html += renderProjectCard(team[i]);
-        }
-    }
-    
-    if (projects.length === 0) {
-        html = '<div class="empty-state">✨ ' + t('noProjects') + '</div>';
-    }
-    
-    container.innerHTML = html;
-}
-
-function renderProjectCard(p) {
-    var projectTasks = [];
-    for (var i = 0; i < tasks.length; i++) {
-        if (tasks[i].project_id === p.id) projectTasks.push(tasks[i]);
-    }
-    var completedCount = 0;
-    for (var i = 0; i < projectTasks.length; i++) {
-        if (projectTasks[i].status === 'completed') completedCount++;
-    }
-    var teamInfo = p.team_name ? '<div class="project-card-team">👥 ' + escapeHtml(p.team_name) + '</div>' : '';
-    
-    return `
-        <div class="project-card" onclick="showProjectTasksMain(${p.id})">
-            <div class="project-card-header">
-                <span class="project-card-icon">📁</span>
-                <h3>${escapeHtml(p.name)}</h3>
-                <button class="delete-project-btn" onclick="event.stopPropagation(); deleteProject(${p.id})">🗑️</button>
-            </div>
-            ${p.description ? '<p class="project-card-desc">' + escapeHtml(p.description) + '</p>' : ''}
-            ${teamInfo}
-            <div class="project-card-meta">
-                <span>📋 ${projectTasks.length} ${t('tasksCount')}</span>
-                <span>✅ ${completedCount} ${t('completedCount')}</span>
-            </div>
-        </div>
-    `;
+    renderProjectsAsList();
 }
 
 function showAllClients() {
@@ -1589,7 +1556,10 @@ async function showStatistics() {
 
     let container = document.getElementById('main-container');
     container.innerHTML = `
-        <div class="stats-header"><h2>📊 Статистика</h2></div>
+        <div class="stats-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+            <h2>📊 ${t('statisticsMenu')}</h2>
+            <button class="new-task-btn" onclick="downloadStatisticsExcel()">📥 ${t('downloadExcel')}</button>
+        </div>
         <div class="stats-container">
             <div class="stat-card"><div class="stat-number" id="stat-projects">--</div><div class="stat-label">📁 Проектов</div></div>
             <div class="stat-card"><div class="stat-number" id="stat-tasks">--</div><div class="stat-label">📋 Задач</div></div>
@@ -1612,7 +1582,10 @@ async function showStatistics() {
     await new Promise(r => setTimeout(r, 50));
     
     var stats = await api('/stats');
-    if (stats) {
+    if (!stats) return;
+    // Для графика недели нужны все задачи, без фильтров с других экранов
+    var allTasks = (await api('/tasks')) || [];
+    {
         document.getElementById('stat-projects').textContent = stats.total_projects || 0;
         document.getElementById('stat-tasks').textContent = stats.total_tasks || 0;
         document.getElementById('stat-active').textContent = stats.active_tasks || 0;
@@ -1679,8 +1652,8 @@ async function showStatistics() {
             d.setDate(monday.getDate() + i);
             var ds = d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
             var cnt = 0;
-            for (var j = 0; j < tasks.length; j++) {
-                if (tasks[j].due_date === ds && tasks[j].status === 'completed') cnt++;
+            for (var j = 0; j < allTasks.length; j++) {
+                if (allTasks[j].due_date === ds && allTasks[j].status === 'completed') cnt++;
             }
             data.push({ day: days[i], count: cnt });
             if (cnt > maxVal) maxVal = cnt;
@@ -1724,24 +1697,17 @@ async function showStatistics() {
 }
 
 async function loadTeamMembersForTask(projectId) {
-    if (!projects || projects.length === 0) {
-        await loadProjects();
+    var select = document.getElementById('task-assignee');
+    var project = projectId ? projects.find(function(p) { return p.id === projectId; }) : null;
+    var html = '<option value="">Не назначен</option>';
+    if (project && project.team_id) {
+        var members = await api('/teams/' + project.team_id + '/members');
+        html = '';
+        (members || []).forEach(function(m) {
+            html += '<option value="' + m.user_id + '">' + escapeHtml(m.username) + ' (' + (m.role === 'manager' ? 'менеджер' : 'участник') + ')</option>';
+        });
     }
-    
-    let project = projects.find(p => p.id === projectId);
-    if (!project || !project.team_id) {
-        document.getElementById('task-assignee').innerHTML = '<option value="">Не назначен</option>';
-        return;
-    }
-    
-    let members = await api('/teams/' + project.team_id + '/members');
-    let html = '<option value="">Не назначен</option>';
-    if (members && members.length > 0) {
-        for (let m of members) {
-            html += `<option value="${m.user_id}">${escapeHtml(m.username)} (${m.role === 'manager' ? 'менеджер' : 'участник'})</option>`;
-        }
-    }
-    document.getElementById('task-assignee').innerHTML = html;
+    select.innerHTML = html;
 }
 
 function downloadStatisticsExcel() {
@@ -1833,13 +1799,8 @@ async function showProjectTasksLeft(projectId) {
     selectedDate = null;
     currentView = 'tasks';
     
-    var project = null;
-    for (var i = 0; i < projects.length; i++) {
-        if (projects[i].id === projectId) {
-            project = projects[i];
-            break;
-        }
-    }
+    var project = projects.find(function(p) { return p.id === projectId; });
+    if (!project) return showAllProjects();
     await loadTasks();
     
     let container = document.getElementById('main-container');
@@ -1852,11 +1813,7 @@ async function showProjectTasksLeft(projectId) {
     `;
     
     renderTasks();
-    
-    var items = document.querySelectorAll('.project-item');
-    for (var i = 0; i < items.length; i++) {
-        items[i].classList.remove('selected');
-    }
+    renderProjectsList();
 }
 
 async function showProjectTasksMain(projectId) {
@@ -1864,13 +1821,8 @@ async function showProjectTasksMain(projectId) {
     selectedDate = null;
     currentView = 'tasks';
     
-    var project = null;
-    for (var i = 0; i < projects.length; i++) {
-        if (projects[i].id === projectId) {
-            project = projects[i];
-            break;
-        }
-    }
+    var project = projects.find(function(p) { return p.id === projectId; });
+    if (!project) return showAllProjects();
     await loadTasks();
     
     let container = document.getElementById('main-container');
@@ -1905,10 +1857,7 @@ async function selectDate(dateStr) {
     `;
     
     renderTasks();
-    var items = document.querySelectorAll('.project-item');
-    for (var i = 0; i < items.length; i++) {
-        items[i].classList.remove('selected');
-    }
+    renderProjectsList();
 }
 
 function showTaskModal(selectedDateFromCalendar, preselectedProjectId) {
@@ -1943,22 +1892,49 @@ function showTaskModal(selectedDateFromCalendar, preselectedProjectId) {
     }
     
     document.getElementById('task-priority').value = 'medium';
-    
+    document.querySelector('#task-modal h3').textContent = t('taskModalTitle');
+
     updateProjectSelects();
     updateTagSelects();
-    
-    if (preselectedProjectId) {
-        setTimeout(function() {
-            var projectSelect = document.getElementById('task-project');
-            if (projectSelect) projectSelect.value = preselectedProjectId;
-        }, 100);
-    }
-    
+    document.getElementById('task-tag').value = '';
+
+    var projectSelect = document.getElementById('task-project');
+    projectSelect.value = preselectedProjectId || '';
+    projectSelect.disabled = false;
+    // Для командного проекта сразу подгружаем исполнителей, иначе задачу не создать
+    var membersLoaded = loadTeamMembersForTask(preselectedProjectId || null);
+
     var btn = document.querySelector('#task-modal .submit-btn');
     if (btn) {
         btn.textContent = t('createTask');
         btn.onclick = createTask;
     }
+    return membersLoaded;
+}
+
+// Значения формы задачи: проверка даты и времени. null — если данные неверны
+function readTaskForm() {
+    var title = document.getElementById('task-title').value.trim();
+    if (!title) { alert(t('enterTaskName')); return null; }
+    var dueDate = parseDateToISO(document.getElementById('task-due').value);
+    if (dueDate === undefined) { alert(t('invalidDate')); return null; }
+    var assigneeId = document.getElementById('task-assignee').value;
+    var tagId = document.getElementById('task-tag').value;
+    return {
+        title: title,
+        description: document.getElementById('task-desc').value,
+        due_date: dueDate,
+        task_time: document.getElementById('task-time').value || null,
+        priority: document.getElementById('task-priority').value,
+        tag_id: tagId ? parseInt(tagId) : null,
+        assigned_to: assigneeId ? parseInt(assigneeId) : null
+    };
+}
+
+async function refreshAfterTaskChange() {
+    await loadTasks();
+    if (currentView === 'tasks') renderTasks();
+    renderCalendar();
 }
 
 function toggleFilterPanel() {
@@ -1971,10 +1947,12 @@ function toggleFilterPanel() {
 }
 
 async function applyFilters() {
+    var dateIso = parseDateToISO(document.getElementById('filter-date').value);
+    if (dateIso === undefined) return alert(t('invalidDate'));
     currentFilters.tag_id = document.getElementById('filter-tag').value || null;
     currentFilters.status = document.getElementById('filter-status').value || null;
     currentFilters.priority = document.getElementById('filter-priority').value || null;
-    currentFilters.date = document.getElementById('filter-date').value || null;
+    currentFilters.date = dateIso;
     currentFilters.project_id = document.getElementById('filter-project').value || null;
     
     selectedProjectId = currentFilters.project_id ? parseInt(currentFilters.project_id) : null;
@@ -1985,8 +1963,8 @@ async function applyFilters() {
     if (currentView === 'tasks') renderTasks();
 }
 
-function clearAllFilters() {
-    var ids = ['filter-tag', 'filter-status', 'filter-priority', 'filter-date', 'filter-project'];
+async function clearAllFilters() {
+    var ids = ['filter-tag', 'filter-status', 'filter-priority', 'filter-date', 'filter-project', 'search-input'];
     for (var i = 0; i < ids.length; i++) {
         var el = document.getElementById(ids[i]);
         if (el) el.value = '';
@@ -2003,7 +1981,7 @@ function clearAllFilters() {
     selectedProjectId = null;
     selectedDate = null;
     
-    loadTasks();
+    await loadTasks();
     document.getElementById('filter-panel').style.display = 'none';
     if (currentView === 'tasks') renderTasks();
 }
@@ -2043,17 +2021,13 @@ function clearMainFilters() {
 async function toggleTask(taskId, currentStatus) {
     var newStatus = currentStatus === 'completed' ? 'active' : 'completed';
     await api('/tasks/' + taskId, 'PUT', { status: newStatus });
-    await loadTasks();
-    if (currentView === 'tasks') renderTasks();
-    renderCalendar();
+    await refreshAfterTaskChange();
 }
 
 async function deleteTask(taskId) {
     if (!confirm(t('deleteConfirm'))) return;
     await api('/tasks/' + taskId, 'DELETE');
-    await loadTasks();
-    if (currentView === 'tasks') renderTasks();
-    renderCalendar();
+    await refreshAfterTaskChange();
 }
 
 function closeTaskModal() {
@@ -2062,110 +2036,59 @@ function closeTaskModal() {
 }
 
 async function createTask() {
-    var title = document.getElementById('task-title').value;
-    if (!title) return alert(t('enterTaskName'));
-    
-    var dueDateInput = document.getElementById('task-due').value;
-    var taskTime = document.getElementById('task-time').value;
+    var task = readTaskForm();
+    if (!task) return;
     var projectId = document.getElementById('task-project').value;
-    var assigneeId = document.getElementById('task-assignee').value;
-    
-    var dueDate = null;
-    if (dueDateInput) {
-        var parts = dueDateInput.split('.');
-        if (parts.length === 3) {
-            dueDate = parts[2] + '-' + parts[1] + '-' + parts[0];
-        } else {
-            dueDate = dueDateInput;
-        }
-    }
-    
-    var task = {
-        title: title,
-        description: document.getElementById('task-desc').value,
-        due_date: dueDate,
-        priority: document.getElementById('task-priority').value,
-        project_id: projectId ? parseInt(projectId) : null,
-        tag_id: document.getElementById('task-tag').value || null,
-        task_time: taskTime || null,
-        assigned_to: assigneeId ? parseInt(assigneeId) : null
-    };
+    task.project_id = projectId ? parseInt(projectId) : null;
 
     var result = await api('/tasks', 'POST', task);
     if (result) {
         closeTaskModal();
-        await loadTasks();
-        if (currentView === 'tasks') renderTasks();
-        renderCalendar();
-    } else {
-        alert('Ошибка при создании задачи');
+        await refreshAfterTaskChange();
     }
 }
 
 async function editTask(taskId) {
-    var task = null;
-    for (var i = 0; i < tasks.length; i++) {
-        if (tasks[i].id === taskId) {
-            task = tasks[i];
-            break;
-        }
-    }
+    var task = tasks.find(function(x) { return x.id === taskId; });
     if (!task) return;
     
-    showTaskModal(null, task.project_id);
+    await showTaskModal(null, task.project_id);
     
     document.querySelector('#task-modal h3').textContent = '✏️ ' + t('edit');
     document.getElementById('task-title').value = task.title;
     document.getElementById('task-desc').value = task.description || '';
     document.getElementById('task-due').value = task.due_date ? formatDate(task.due_date) : '';
-    
-    var timeInput = document.getElementById('task-time');
-    if (timeInput && task.task_time) {
-        timeInput.value = task.task_time.toString().substring(0, 5);
-    } else if (timeInput) {
-        timeInput.value = '';
-    }
-    
+    document.getElementById('task-time').value = task.task_time ? task.task_time.toString().substring(0, 5) : '';
     document.getElementById('task-priority').value = task.priority;
-    
-    if (task.project_id) {
-        var projectSelect = document.getElementById('task-project');
-        if (projectSelect) projectSelect.value = task.project_id;
-        await loadTeamMembersForTask(task.project_id);
-        var assigneeSelect = document.getElementById('task-assignee');
-        if (assigneeSelect && task.assigned_to) {
-            assigneeSelect.value = task.assigned_to;
-        }
-    }
     document.getElementById('task-tag').value = task.tag_id || '';
+    document.getElementById('task-assignee').value = task.assigned_to || '';
+    // Проект у существующей задачи не меняется
+    document.getElementById('task-project').disabled = true;
     
     var btn = document.querySelector('#task-modal .submit-btn');
-    if (btn) {
-        btn.textContent = t('update');
-        btn.onclick = async function() {
-            var updated = {
-                title: document.getElementById('task-title').value,
-                description: document.getElementById('task-desc').value,
-                due_date: parseDateToISO(document.getElementById('task-due').value),
-                priority: document.getElementById('task-priority').value,
-                tag_id: document.getElementById('task-tag').value || null
-            };
-            await api('/tasks/' + taskId, 'PUT', updated);
+    btn.textContent = t('update');
+    btn.onclick = async function() {
+        var updated = readTaskForm();
+        if (!updated) return;
+        if (!task.project_id || !projects.some(function(p) { return p.id === task.project_id && p.team_id; })) {
+            delete updated.assigned_to;
+        }
+        var result = await api('/tasks/' + taskId, 'PUT', updated);
+        if (result) {
             closeTaskModal();
-            await loadTasks();
-            if (currentView === 'tasks') renderTasks();
-            renderCalendar();
-            btn.textContent = t('createTask');
-            btn.onclick = createTask;
-            document.querySelector('#task-modal h3').textContent = t('taskModalTitle');
-        };
-    }
+            await refreshAfterTaskChange();
+        }
+    };
 }
 
 function showProjectModal() {
     document.getElementById('project-modal').style.display = 'flex';
     document.getElementById('project-name').value = '';
     document.getElementById('project-desc').value = '';
+    document.getElementById('projectModalTitle').textContent = t('projectModalTitle');
+    var submitBtn = document.getElementById('projectSubmitBtn');
+    submitBtn.textContent = t('projectSubmitBtn');
+    submitBtn.onclick = createProject;
 
     var typeContainer = document.getElementById('project-type-container');
     var teamContainer = document.getElementById('project-team-container');
@@ -2206,6 +2129,42 @@ function showProjectModal() {
         if (freelancerFields) freelancerFields.style.display = 'block';
         updateCategorySelects();
         updateClientSelects();
+    }
+}
+
+function editProject(projectId) {
+    var project = projects.find(function(p) { return p.id === projectId; });
+    if (!project) return;
+    showProjectModal();
+    document.getElementById('projectModalTitle').textContent = t('editProjectTitle');
+    document.getElementById('project-name').value = project.name;
+    document.getElementById('project-desc').value = project.description || '';
+    // Тип и команду проекта меняют в окне команды, здесь только название, описание, категория и клиент
+    document.getElementById('project-type-container').style.display = 'none';
+    document.getElementById('project-team-container').style.display = 'none';
+    document.getElementById('project-team-warning').style.display = 'none';
+    if (currentUserType === 2) {
+        document.getElementById('project-category').value = project.category_id || '';
+        document.getElementById('project-client').value = project.client_id || '';
+    }
+    var submitBtn = document.getElementById('projectSubmitBtn');
+    submitBtn.textContent = t('save');
+    submitBtn.onclick = function() { updateProject(projectId); };
+}
+
+async function updateProject(projectId) {
+    var name = document.getElementById('project-name').value.trim();
+    if (!name) return alert(t('enterProjectName'));
+    var body = { name: name, description: document.getElementById('project-desc').value };
+    if (currentUserType === 2) {
+        body.category_id = parseInt(document.getElementById('project-category').value) || null;
+        body.client_id = parseInt(document.getElementById('project-client').value) || null;
+    }
+    var result = await api('/projects/' + projectId, 'PUT', body);
+    if (result) {
+        closeProjectModal();
+        await loadProjects();
+        renderAllProjects();
     }
 }
 
@@ -2315,6 +2274,8 @@ async function createProject() {
         }
     } else {
         project.type = 'personal';
+        project.category_id = parseInt(document.getElementById('project-category').value) || null;
+        project.client_id = parseInt(document.getElementById('project-client').value) || null;
     }
 
     var result = await api('/projects', 'POST', project);
@@ -2332,10 +2293,18 @@ async function createProject() {
 
 async function deleteProject(projectId) {
     if (!confirm(t('deleteProjectConfirm'))) return;
-    await api('/projects/' + projectId, 'DELETE');
+    var result = await api('/projects/' + projectId, 'DELETE');
+    if (!result) return;
     await loadProjects();
     await loadTasks();
-    if (currentView === 'projects') renderAllProjects();
+    // Если открыт удалённый проект, возвращаемся к списку проектов
+    if (selectedProjectId === projectId) {
+        showAllProjects();
+    } else if (currentView === 'projects') {
+        renderAllProjects();
+    } else if (currentView === 'tasks') {
+        renderTasks();
+    }
     renderCalendar();
 }
 
@@ -2379,11 +2348,12 @@ async function createClient() {
     var contacts = document.getElementById('client-contacts').value;
     if (!name || !contacts) return alert(t('fillAllFields'));
     
-    await api('/clients', 'POST', {
+    var result = await api('/clients', 'POST', {
         name: name,
         contacts: contacts,
         additional: document.getElementById('client-additional').value
     });
+    if (!result) return;
     closeClientModal();
     await loadClients();
     if (currentView === 'clients') showAllClients();
@@ -2394,11 +2364,12 @@ async function updateClient(clientId) {
     var contacts = document.getElementById('client-contacts').value;
     if (!name || !contacts) return alert(t('fillAllFields'));
     
-    await api('/clients/' + clientId, 'PUT', {
+    var result = await api('/clients/' + clientId, 'PUT', {
         name: name,
         contacts: contacts,
         additional: document.getElementById('client-additional').value
     });
+    if (!result) return;
     closeClientModal();
     await loadClients();
     if (currentView === 'clients') showAllClients();
@@ -2412,6 +2383,7 @@ async function deleteClient(clientId) {
 }
 
 function showQuickCategoryModal() {
+    document.getElementById('quick-category-name').value = '';
     document.getElementById('quick-category-modal').style.display = 'flex';
 }
 
@@ -2420,14 +2392,17 @@ function closeQuickCategoryModal() {
 }
 
 async function createQuickCategory() {
-    var name = document.getElementById('quick-category-name').value;
+    var name = document.getElementById('quick-category-name').value.trim();
     if (!name) return;
-    await api('/categories', 'POST', { name: name });
+    var created = await api('/categories', 'POST', { name: name });
+    if (!created) return;
     await loadCategories();
+    document.getElementById('project-category').value = created.id;
     closeQuickCategoryModal();
 }
 
 function showQuickTagModal() {
+    document.getElementById('quick-tag-name').value = '';
     document.getElementById('quick-tag-modal').style.display = 'flex';
 }
 
@@ -2436,10 +2411,12 @@ function closeQuickTagModal() {
 }
 
 async function createQuickTag() {
-    var name = document.getElementById('quick-tag-name').value;
+    var name = document.getElementById('quick-tag-name').value.trim();
     if (!name) return;
-    await api('/tags', 'POST', { name: name });
+    var created = await api('/tags', 'POST', { name: name });
+    if (!created) return;
     await loadTags();
+    document.getElementById('task-tag').value = created.id;
     closeQuickTagModal();
 }
 
@@ -2698,8 +2675,7 @@ function setupSearch() {
 }
 
 async function checkAuth() {
-    var t = getToken();
-    if (!t) {
+    if (!getToken()) {
         window.location.href = '/login.html';
         return;
     }
@@ -2707,6 +2683,10 @@ async function checkAuth() {
     if (user) {
         currentUser = user;
         currentUserType = user.user_type;
+        if (user.language && user.language !== localStorage.getItem('language')) {
+            localStorage.setItem('language', user.language);
+            applyLanguage();
+        }
         var avatar = document.getElementById('avatar');
         if (avatar) avatar.textContent = user.username.charAt(0).toUpperCase();
         setupMenuByUserType();
@@ -2818,9 +2798,13 @@ function renderTeamsList() {
         return;
     }
     var html = '';
+    var myId = currentUser ? currentUser.id : null;
     for (var i = 0; i < teams.length; i++) {
-        var t = teams[i];
-        html += '<div class="team-card" onclick="openTeamMembers(' + t.team_id + ')"><div class="team-card-header"><span>👥</span><h3>' + escapeHtml(t.team_name) + '</h3><button class="delete-btn" onclick="event.stopPropagation(); deleteTeam(' + t.team_id + ')">🗑️</button></div><p>' + escapeHtml(t.description || '') + '</p></div>';
+        var team = teams[i];
+        var deleteBtn = team.created_by === myId
+            ? '<button class="delete-btn" onclick="event.stopPropagation(); deleteTeam(' + team.team_id + ')">🗑️</button>'
+            : '';
+        html += '<div class="team-card" onclick="openTeamMembers(' + team.team_id + ')"><div class="team-card-header"><span>👥</span><h3>' + escapeHtml(team.team_name) + '</h3>' + deleteBtn + '</div><p>' + escapeHtml(team.description || '') + '</p></div>';
     }
     container.innerHTML = html;
 }
@@ -2898,15 +2882,30 @@ async function openTeamMembers(teamId) {
     await loadTeamMembers(teamId);
     await loadTeamInvites(teamId);
     await loadTeamProjects(teamId);
-    
+    updateAddProjectSelect(teamId);
+}
+
+// В команду можно добавить только свои проекты, которых в ней ещё нет
+function updateAddProjectSelect(teamId) {
     var select = document.getElementById('add-project-select');
-    if (select) {
-        var html = '';
-        for (var i = 0; i < projects.length; i++) {
-            html += '<option value="' + projects[i].id + '">' + escapeHtml(projects[i].name) + '</option>';
+    if (!select) return;
+    var myId = currentUser ? currentUser.id : null;
+    var html = '';
+    for (var i = 0; i < projects.length; i++) {
+        var p = projects[i];
+        if (p.author_id === myId && p.team_id !== teamId) {
+            html += '<option value="' + p.id + '">' + escapeHtml(p.name) + '</option>';
         }
-        select.innerHTML = html;
     }
+    select.innerHTML = html;
+}
+
+// Элементы управления командой видны только менеджеру
+function setTeamManagerControls(isManager) {
+    ['invite-email', 'searchUserBtn', 'inviteMemberBtn', 'add-project-select', 'addProjectBtn', 'inviteByEmailLabel'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = isManager ? '' : 'none';
+    });
 }
 
 function closeTeamMembersModal() {
@@ -2921,11 +2920,16 @@ async function loadTeamMembers(teamId) {
         container.innerHTML = '<p style="color:#86868b;">' + t('noMembers') + '</p>';
         return;
     }
+    var myId = currentUser ? currentUser.id : null;
+    var me = data.find(function(m) { return m.user_id === myId; });
+    var isManager = !!me && me.role === 'manager';
+    currentTeamIsManager = isManager;
+    setTeamManagerControls(isManager);
     var html = '';
     for (var i = 0; i < data.length; i++) {
         var m = data[i];
         html += '<div class="member-item"><span>' + escapeHtml(m.username) + ' (' + (m.role === 'manager' ? 'менеджер' : 'участник') + ')</span>';
-        if (m.role !== 'manager') {
+        if (isManager && m.role !== 'manager') {
             html += '<button onclick="removeMember(' + teamId + ', ' + m.user_id + ')">❌</button>';
         }
         html += '</div>';
@@ -2958,12 +2962,16 @@ async function loadTeamProjects(teamId) {
     }
     var html = '';
     for (var i = 0; i < data.length; i++) {
-        html += '<div class="member-item"><span>📁 ' + escapeHtml(data[i].project_name) + '</span><button onclick="removeProjectFromTeam(' + teamId + ', ' + data[i].project_id + ')">❌</button></div>';
+        var removeBtn = currentTeamIsManager
+            ? '<button onclick="removeProjectFromTeam(' + teamId + ', ' + data[i].project_id + ')">❌</button>'
+            : '';
+        html += '<div class="member-item"><span>📁 ' + escapeHtml(data[i].project_name) + '</span>' + removeBtn + '</div>';
     }
     container.innerHTML = html;
 }
 
 let selectedUserForInvite = null;
+let currentTeamIsManager = false;
 
 async function searchUsers() {
     var query = document.getElementById('invite-email').value.trim();
@@ -2992,10 +3000,18 @@ async function searchUsers() {
     var html = '';
     for (var i = 0; i < users.length; i++) {
         var u = users[i];
-        html += '<div class="search-result-item" onclick="selectUserForInvite(' + u.id + ', \'' + escapeHtml(u.username) + '\', \'' + escapeHtml(u.email) + '\')" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid #f0f0f0;"><div style="font-weight:500;">' + escapeHtml(u.username) + '</div><div style="font-size:12px;color:#86868b;">' + escapeHtml(u.email) + '</div></div>';
+        html += '<div class="search-result-item" data-index="' + i + '" style="padding:12px 16px;cursor:pointer;border-bottom:1px solid #f0f0f0;"><div style="font-weight:500;">' + escapeHtml(u.username) + '</div><div style="font-size:12px;color:#86868b;">' + escapeHtml(u.email) + '</div></div>';
     }
     resultsDiv.style.display = 'block';
     resultsDiv.innerHTML = html;
+    resultsDiv.querySelectorAll('.search-result-item').forEach(function(item) {
+        item.addEventListener('click', function() {
+            var u = users[parseInt(item.getAttribute('data-index'))];
+            resultsDiv.querySelectorAll('.search-result-item').forEach(function(el) { el.style.background = ''; });
+            item.style.background = '#f5f5f7';
+            selectUserForInvite(u.id, u.username, u.email);
+        });
+    });
 }
 
 function selectUserForInvite(id, username, email) {
@@ -3029,6 +3045,8 @@ async function inviteMember() {
     if (result) {
         alert('Приглашение отправлено!');
         clearSelectedUserForInvite();
+        document.getElementById('invite-email').value = '';
+        document.getElementById('search-results').style.display = 'none';
         await loadTeamInvites(currentTeamId);
     }
 }
@@ -3062,15 +3080,23 @@ async function addProjectToTeam() {
             alert(t('projectAddedToTeam'));
         }
     } else {
-        var result = await api('/teams/' + currentTeamId + '/projects', 'POST', { project_id: parseInt(projectId) });
-        if (result) await loadTeamProjects(currentTeamId);
+        var result = await api('/teams/' + currentTeamId + '/projects?project_id=' + projectId, 'POST');
+        if (result) {
+            await loadTeamProjects(currentTeamId);
+            await loadProjects();
+            alert(t('projectAddedToTeam'));
+        }
     }
+    updateAddProjectSelect(currentTeamId);
 }
 
 async function removeProjectFromTeam(teamId, projectId) {
     if (!confirm(t('removeProjectConfirm'))) return;
-    await api('/teams/' + teamId + '/projects/' + projectId, 'DELETE');
+    var result = await api('/teams/' + teamId + '/projects/' + projectId, 'DELETE');
+    if (!result) return;
     await loadTeamProjects(teamId);
+    await loadProjects();
+    updateAddProjectSelect(teamId);
 }
 
 async function switchLanguage(lang) {
@@ -3088,6 +3114,15 @@ document.addEventListener('DOMContentLoaded', function() {
             formatDateInput(e.target);
         });
     }
+});
+
+// Отправка форм входа и регистрации клавишей Enter
+document.querySelectorAll('.auth-form input').forEach(function(input) {
+    input.addEventListener('keydown', function(e) {
+        if (e.key !== 'Enter') return;
+        if (document.getElementById('login-email')) loginUser();
+        else if (document.getElementById('reg-email')) registerUser();
+    });
 });
 
 if (document.getElementById('avatar')) {

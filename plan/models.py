@@ -1,11 +1,21 @@
-from pydantic import BaseModel, EmailStr
-from typing import Optional, List
+from datetime import date
+from typing import Annotated, Literal, Optional
+
+from pydantic import BaseModel, EmailStr, Field, StringConstraints
+
+# Непустая строка без пробелов по краям
+Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
+# Время задачи в формате ЧЧ:ММ
+TimeStr = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$")]
+Priority = Literal["low", "medium", "high"]
+Status = Literal["active", "completed"]
+
 
 class UserRegister(BaseModel):
-    username: str
+    username: Name
     email: EmailStr
     password: str
-    user_type: int = 1
+    user_type: Literal[1, 2] = 1
 
 class UserLogin(BaseModel):
     email: EmailStr
@@ -23,43 +33,50 @@ class TokenOut(BaseModel):
     user_type: int
 
 class ProfileUpdate(BaseModel):
-    username: Optional[str] = None
-    language: Optional[str] = None
-    notif_p: Optional[int] = None
+    username: Optional[Name] = None
+    language: Optional[Literal["ru", "en"]] = None
+    notif_p: Optional[Literal[0, 1]] = None
 
 class ProjectCreate(BaseModel):
-    name: str
+    name: Name
     description: str = ""
-    type: str = "personal"
+    type: Literal["personal", "team"] = "personal"
     team_id: Optional[int] = None
+    category_id: Optional[int] = None
+    client_id: Optional[int] = None
+
+class ProjectUpdate(BaseModel):
+    name: Optional[Name] = None
+    description: Optional[str] = None
     category_id: Optional[int] = None
     client_id: Optional[int] = None
 
 class ProjectOut(BaseModel):
     id: int
     name: str
-    description: str
+    description: Optional[str] = ""
     status: str
     type: str = "personal"
     team_id: Optional[int] = None
     team_name: Optional[str] = None
     category_id: Optional[int] = None
     client_id: Optional[int] = None
+    author_id: Optional[int] = None
 
 class TaskCreate(BaseModel):
-    title: str
+    title: Name
     description: str = ""
     project_id: Optional[int] = None
-    priority: str = "medium"
-    due_date: Optional[str] = None
+    priority: Priority = "medium"
+    due_date: Optional[date] = None
     tag_id: Optional[int] = None
-    task_time: Optional[str] = None
+    task_time: Optional[TimeStr] = None
     assigned_to: Optional[int] = None
 
 class TaskOut(BaseModel):
     id: int
     title: str
-    description: str
+    description: Optional[str] = ""
     priority: str
     status: str
     project_id: Optional[int] = None
@@ -69,37 +86,40 @@ class TaskOut(BaseModel):
     task_time: Optional[str] = None
     assigned_to: Optional[int] = None
     assigned_to_username: Optional[str] = None
+    author_id: Optional[int] = None
 
 class TaskUpdate(BaseModel):
-    status: Optional[str] = None
-    title: Optional[str] = None
+    status: Optional[Status] = None
+    title: Optional[Name] = None
     description: Optional[str] = None
-    priority: Optional[str] = None
-    due_date: Optional[str] = None
+    priority: Optional[Priority] = None
+    due_date: Optional[date] = None
     tag_id: Optional[int] = None
+    task_time: Optional[TimeStr] = None
+    assigned_to: Optional[int] = None
 
 class CategoryCreate(BaseModel):
-    name: str
+    name: Name
 
 class CategoryOut(BaseModel):
     id: int
     name: str
 
 class TagCreate(BaseModel):
-    name: str
+    name: Name
 
 class TagOut(BaseModel):
     id: int
     name: str
 
 class ClientCreate(BaseModel):
-    name: str
-    contacts: str
+    name: Name
+    contacts: Name
     additional: Optional[str] = None
 
 class ClientUpdate(BaseModel):
-    name: Optional[str] = None
-    contacts: Optional[str] = None
+    name: Optional[Name] = None
+    contacts: Optional[Name] = None
     additional: Optional[str] = None
 
 class ClientOut(BaseModel):
@@ -109,11 +129,11 @@ class ClientOut(BaseModel):
     additional: Optional[str] = None
 
 class ReportCreate(BaseModel):
-    report_name: str
-    period_start: str
-    period_end: str
-    report_type: str
-    target_id: int
+    report_name: Name
+    period_start: date
+    period_end: date
+    report_type: Literal["project", "client", "team"]
+    target_id: int = Field(gt=0)
 
 class ReportOut(BaseModel):
     id: int
@@ -125,7 +145,7 @@ class ReportOut(BaseModel):
     created_at: str
 
 class TeamCreate(BaseModel):
-    team_name: str
+    team_name: Name
     description: Optional[str] = None
 
 class TeamOut(BaseModel):

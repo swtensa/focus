@@ -1,9 +1,14 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from routers import router
 import uvicorn
+
+# Все пути считаются от папки с кодом, поэтому сервер можно запускать из любой папки
+BASE_DIR = Path(__file__).resolve().parent
 
 app = FastAPI(title="Focus API")
 
@@ -21,37 +26,37 @@ app.add_middleware(
 )
 
 app.include_router(router)
-app.mount("/images", StaticFiles(directory="images"), name="images")
+app.mount("/images", StaticFiles(directory=BASE_DIR / "images"), name="images")
+
 
 # ========== СТАТИЧЕСКИЕ ФАЙЛЫ ==========
+def _page(name: str, media_type: str = "text/html; charset=utf-8"):
+    # no-cache: после обновления кода браузер не показывает старые script.js и style.css
+    return FileResponse(BASE_DIR / name, media_type=media_type, headers={"Cache-Control": "no-cache"})
+
 @app.get("/")
 def root():
-    with open("index.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    return _page("index.html")
 
 @app.get("/login.html")
 def get_login():
-    with open("login.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    return _page("login.html")
 
 @app.get("/register.html")
 def get_register():
-    with open("register.html", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read())
+    return _page("register.html")
 
 @app.get("/style.css")
 def get_css():
-    with open("style.css", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read(), media_type="text/css")
+    return _page("style.css", "text/css; charset=utf-8")
 
 @app.get("/script.js")
 def get_js():
-    with open("script.js", "r", encoding="utf-8") as f:
-        return HTMLResponse(content=f.read(), media_type="application/javascript")
+    return _page("script.js", "application/javascript; charset=utf-8")
 
 @app.get("/favicon.ico")
 def get_favicon():
     return Response(status_code=204)
 
 if __name__ == "__main__":
-    uvicorn.run("back:app", host="0.0.0.0", port=8000, reload=True)
+    uvicorn.run("back:app", host="127.0.0.1", port=8000, reload=True, app_dir=str(BASE_DIR))

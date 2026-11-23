@@ -1,9 +1,12 @@
 import os
+from pathlib import Path
+
 import psycopg2
 from psycopg2.extras import RealDictCursor
 from dotenv import load_dotenv
 
-load_dotenv()
+# .env лежит рядом с кодом, поэтому сервер можно запускать из любой папки
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
 DB_CONFIG = {
     "dbname": os.getenv("DB_NAME", "taskflow_db"),
